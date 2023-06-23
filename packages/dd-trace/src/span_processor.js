@@ -4,6 +4,7 @@ const log = require('./log')
 const format = require('./format')
 const SpanSampler = require('./span_sampler')
 const GitMetadataTagger = require('./git_metadata_tagger')
+const id = require('./id');
 
 const { SpanStatsProcessor } = require('./span_stats')
 
@@ -36,11 +37,31 @@ class SpanProcessor {
       this._spanSampler.sample(spanContext)
       this._gitMetadataTagger.tagGitMetadata(spanContext)
 
+      const clonedFormattedSpanMap = new Map();
       for (const span of started) {
         if (span._duration !== undefined) {
           const formattedSpan = format(span)
           this._stats.onSpanFinished(formattedSpan)
-          formatted.push(formattedSpan)
+
+          if (formattedSpan.meta._multiparents) {
+            const multiparents = formattedSpan.meta._multiparents.split("|");
+            formattedSpan.trace_id = id(multiparents[0]);
+            for (let i = 1; i < multiparents.length; i++) {
+              const trace_id = multiparents[i];
+              let clonedFormattedSpans = [];
+              if (clonedFormattedSpanMap.get(trace_id)) {
+                clonedFormattedSpans = clonedFormattedSpanMap.get(trace_id)
+              }
+
+              clonedFormattedSpans.push({
+                ...formattedSpan,
+                trace_id: id(trace_id)
+              });
+              clonedFormattedSpanMap.set(trace_id, clonedFormattedSpans);
+            }
+          }
+
+          formatted.push(formattedSpan);
         } else {
           active.push(span)
         }
@@ -49,6 +70,14 @@ class SpanProcessor {
       if (formatted.length !== 0 && trace.isRecording !== false) {
         this._exporter.export(formatted)
       }
+      if (clonedFormattedSpanMap.size > 0) {
+        const spanSets = [...clonedFormattedSpanMap.values()];
+        for (let i = 0; i < spanSets.length; i++) {
+          console.log(spanSets[i]);
+          this._exporter.export(spanSets[i]);
+        }
+      }
+
 
       this._erase(trace, active)
     }
