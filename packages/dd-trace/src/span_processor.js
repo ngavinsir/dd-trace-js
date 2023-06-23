@@ -45,7 +45,7 @@ class SpanProcessor {
 
           if (formattedSpan.meta._multiparents) {
             const multiparents = formattedSpan.meta._multiparents.split("|");
-            formattedSpan.trace_id = id(multiparents[0]);
+            formattedSpan.trace_id = id(multiparents[0], 10);
             for (let i = 1; i < multiparents.length; i++) {
               const trace_id = multiparents[i];
               let clonedFormattedSpans = [];
@@ -55,7 +55,7 @@ class SpanProcessor {
 
               clonedFormattedSpans.push({
                 ...formattedSpan,
-                trace_id: id(trace_id)
+                trace_id: id(trace_id, 10)
               });
               clonedFormattedSpanMap.set(trace_id, clonedFormattedSpans);
             }
@@ -73,7 +73,6 @@ class SpanProcessor {
       if (clonedFormattedSpanMap.size > 0) {
         const spanSets = [...clonedFormattedSpanMap.values()];
         for (let i = 0; i < spanSets.length; i++) {
-          console.log(spanSets[i]);
           this._exporter.export(spanSets[i]);
         }
       }

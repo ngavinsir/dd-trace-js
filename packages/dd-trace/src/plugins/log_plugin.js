@@ -47,6 +47,9 @@ module.exports = class LogPlugin extends Plugin {
       // so service, version, and env will always get injected.
       const holder = {}
       this.tracer.inject(span, LOG, holder)
+      if (span.context()._tags._multiparents) {
+        holder.dd.multiparents = span.context()._tags._multiparents.split('|')
+      }
       arg.message = messageProxy(arg.message, holder)
     })
   }
